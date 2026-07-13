@@ -1,118 +1,201 @@
-import type { AwsCloudAssemblyManifest } from './aws-internal-ir.ts';
-import type { AzureAssemblyManifest } from './azure-internal-ir.ts';
-import type { IirExpression } from './shared-iir.ts';
+import type { GenericCloudAssembly, IirExpression } from './shared-iir.ts';
+import type { AwsInternalResource } from './aws-internal-ir.ts';
+import type { AzureInternalResource } from './azure-internal-ir.ts';
 
-/**
- * Resolves expressions based on the target execution engine's interpolation design patterns.
- */
-function resolveExpression(expr: IirExpression, target: 'CloudFormation' | 'Terraform' | 'ARM', context?: { armType?: string, apiVersion?: string }): any {
-  if (expr.kind === 'Literal') {
-    return expr.value;
-  }
-  
-  if (expr.kind === 'Reference') {
-    switch (target) {
-      case 'CloudFormation':
-        return { "Fn::GetAtt": [expr.targetResourceId, expr.attributePath.join('.')] };
-      case 'Terraform':
-        return `\${${context?.armType || 'azure'}.${expr.targetResourceId}.${expr.attributePath.join('_')}}`;
-      case 'ARM':
-        // Native ARM template string reference interpolation format
-        return `[reference(resourceId('${context?.armType}', '${expr.targetResourceId}'), '${context?.apiVersion}').${expr.attributePath.join('.')}]`;
-    }
-  }
+export interface BackendSerializer {
+  readonly name: string;
+  serialize(manifest: GenericCloudAssembly<any>): string;
 }
 
 /**
- * CloudFormation Serializer (targets AWS IR Stack manifests)[cite: 2]
+ * Universal Expression Resolver across all cloud engines
  */
-export function serializeToCloudFormation(assembly: AwsCloudAssemblyManifest): string {
-  const cfnTemplate: any = { AWSTemplateFormatVersion: '2010-09-09', Resources: {} };
-  for (const res of assembly.resources) {
-    const cfnType = res.kind === 'bucket' ? 'AWS::S3::Bucket' : 'AWS::CloudFormation::CustomResource';
-    const processedProps: Record<string, any> = {};
-    for (const [key, val] of Object.entries(res.properties)) {
-      processedProps[key] = resolveExpression(val, 'CloudFormation');
-    }
-    cfnTemplate.Resources[res.id] = {
-      Type: cfnType,
-      Properties: processedProps,
-      DeletionPolicy: res.awsMetadata?.deletionPolicy || 'Delete'
-    };
-  }
-  return JSON.stringify(cfnTemplate, null, 2);
-}
-
-/**
- * ARM Template Serializer - Implements RFC-07 multi-backend compliance[cite: 2]
- */
-export function serializeToArm(assembly: AzureAssemblyManifest): string {
-  const armTemplate: any = {
-    $schema: "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#", // Standard deployment schema
-    contentVersion: "1.0.0.0",
-    resources: [],
-    outputs: {}
-  };
-
-  for (const res of assembly.resources) {
-    // Map abstract component indicators to clear ARM namespaces
-    const armType = res.kind === 'storage-account' ? 'Microsoft.Storage/storageAccounts' : 'Microsoft.Network/virtualNetworks';
-    const apiVersion = res.kind === 'storage-account' ? '2023-05-01' : '2023-11-01';
-
-    const processedProps: Record<string, any> = {};
-    for (const [key, val] of Object.entries(res.properties)) {
-      processedProps[key] = resolveExpression(val, 'ARM', { armType, apiVersion });
-    }
-
-    armTemplate.resources.push({
-      type: armType,
-      apiVersion: apiVersion,
-      name: res.id,
-      location: "[resourceGroup().location]", // Automatically leverage localized environment scope
-      sku: res.kind === 'storage-account' ? { name: "Standard_LRS" } : undefined,
-      kind: res.kind === 'storage-account' ? "StorageV2" : undefined,
-      properties: processedProps,
-      dependsOn: res.dependencies.length > 0 ? res.dependencies : undefined // Explicit tree resolution mapped directly[cite: 1]
-    });
-  }
-
-  return JSON.stringify(armTemplate, null, 2);
-}
-
-/**
- * Enhanced Terraform Serializer - Universal translation from both AWS and Azure manifests
- */
-export function serializeToTerraform(assembly: AwsCloudAssemblyManifest | AzureAssemblyManifest): string {
-  const tfTemplate: any = { resource: {} };
-
-  for (const res of assembly.resources) {
-    if (res.kind === 'bucket') {
-      tfTemplate.resource.aws_s3_bucket = tfTemplate.resource.aws_s3_bucket || {};
-      const props: Record<string, any> = {};
-      for (const [key, val] of Object.entries(res.properties)) {
-        props[key === 'BucketName' ? 'bucket' : key] = resolveExpression(val, 'Terraform', { armType: 'aws_s3_bucket' });
+function resolveExpression(expr: IirExpression, target: 'CFN' | 'TF' | 'ARM', isNestedArmExpr = false): any {
+  switch (expr.kind) {
+    case 'Literal':
+      if (target === 'ARM' && isNestedArmExpr) {
+        return typeof expr.value === 'string' ? `'${expr.value}'` : expr.value;
       }
-      tfTemplate.resource.aws_s3_bucket[res.id] = props;
-    } 
+      return expr.value;
     
-    else if (res.kind === 'storage-account') {
-      tfTemplate.resource.azurerm_storage_account = tfTemplate.resource.azurerm_storage_account || {};
-      const props: Record<string, any> = {};
-      for (const [key, val] of Object.entries(res.properties)) {
-        // Map to exact azurerm TF provider attributes
-        const tfKey = key === 'accountName' ? 'name' : key;
-        props[tfKey] = resolveExpression(val, 'Terraform', { armType: 'azurerm_storage_account' });
+    case 'Reference':
+      const r = expr.reference;
+      if (target === 'CFN') return { "Fn::GetAtt": [r.targetResourceId, r.attributePath.join('.')] };
+      if (target === 'TF') return `\${${r.targetResourceId}.${r.attributePath.join('_')}}`;
+      if (target === 'ARM') {
+        const refStr = `reference(resourceId('Microsoft.Storage/storageAccounts', '${r.targetResourceId}'), '2023-05-01').${r.attributePath.join('.')}`;
+        return isNestedArmExpr ? refStr : `[${refStr}]`;
       }
-      // Inject standard necessary parameters for target translation engine
-      tfTemplate.resource.azurerm_storage_account[res.id] = {
-        ...props,
-        resource_group_name: "my-default-rg",
-        location: "East US",
-        account_tier: "Standard",
-        account_replication_type: "LRS"
+      break;
+
+    case 'Concat':
+      if (target === 'CFN') return { "Fn::Join": ["", expr.parts.map(p => resolveExpression(p, target))] };
+      if (target === 'TF') return expr.parts.map(p => p.kind === 'Literal' ? p.value : resolveExpression(p, target)).join('');
+      if (target === 'ARM') {
+        const partsStr = expr.parts.map(p => resolveExpression(p, target, true)).join(', ');
+        const concatStr = `concat(${partsStr})`;
+        return isNestedArmExpr ? concatStr : `[${concatStr}]`;
+      }
+      break;
+
+    case 'Conditional':
+      if (target === 'CFN') return { "Fn::If": [expr.conditionId, resolveExpression(expr.whenTrue, target), resolveExpression(expr.whenFalse, target)] };
+      if (target === 'TF') return `\${var.${expr.conditionId} ? ${resolveExpression(expr.whenTrue, target)} : ${resolveExpression(expr.whenFalse, target)}}`;
+      if (target === 'ARM') {
+        const condStr = `if(variables('${expr.conditionId}'), ${resolveExpression(expr.whenTrue, target, true)}, ${resolveExpression(expr.whenFalse, target, true)})`;
+        return isNestedArmExpr ? condStr : `[${condStr}]`;
+      }
+      break;
+
+    case 'List':
+      return expr.elements.map(e => resolveExpression(e, target, isNestedArmExpr));
+      
+    case 'Map':
+      const obj: Record<string, any> = {};
+      for (const [k, v] of Object.entries(expr.fields)) {
+        obj[k] = resolveExpression(v, target, isNestedArmExpr);
+      }
+      return obj;
+  }
+}
+
+// ========================================================================
+// CLOUDFORMATION SERIALIZER
+// ========================================================================
+export class CloudFormationSerializer implements BackendSerializer {
+  readonly name = 'CloudFormation';
+
+  serialize(manifest: GenericCloudAssembly<any>): string {
+    const output: any = { AWSTemplateFormatVersion: '2010-09-09', Conditions: {}, Resources: {}, Outputs: {} };
+    
+    manifest.conditions.forEach(c => output.Conditions[c.id] = resolveExpression(c.expression, 'CFN'));
+
+    for (const res of manifest.resources) {
+      // Requirement 10: Gracefully isolate foreign namespaces
+      if (res.resourceType.namespace !== 'aws.s3' && res.resourceType.namespace !== 'aws.ecr') {
+        output.Resources[res.id] = { 
+          Type: "Custom::UnsupportedForeignResource", 
+          Properties: { Warning: `CloudFormation serializer cannot process namespace: ${res.resourceType.namespace}` } 
+        };
+        continue;
+      }
+
+      const cfnType = res.resourceType.type === 'bucket' ? 'AWS::S3::Bucket' : 'AWS::ECR::Repository';
+      const props: Record<string, any> = {};
+      for (const [k, v] of Object.entries(res.properties)) { props[k] = resolveExpression(v as any, 'CFN'); }
+
+      const awsRes = res as AwsInternalResource;
+      output.Resources[res.id] = {
+        Type: cfnType,
+        Condition: res.conditionId,
+        Properties: props,
+        DeletionPolicy: awsRes.awsMetadata?.deletionPolicy || 'Delete',
+        DependsOn: res.dependencies.map((d: { target: any; }) => d.target)
       };
     }
+    return JSON.stringify(output, null, 2);
   }
+}
 
-  return JSON.stringify(tfTemplate, null, 2);
+// ========================================================================
+// AZURE RESOURCE MANAGER (ARM) SERIALIZER
+// ========================================================================
+export class ArmSerializer implements BackendSerializer {
+  readonly name = 'ARM';
+
+  serialize(manifest: GenericCloudAssembly<any>): string {
+    const output: any = {
+      $schema: "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+      contentVersion: "1.0.0.0",
+      resources: [],
+      outputs: {}
+    };
+
+    for (const res of manifest.resources) {
+      // Requirement 10: Gracefully isolate foreign namespaces
+      if (res.resourceType.namespace !== 'azure.storage' && res.resourceType.namespace !== 'azure.network') {
+        output.resources.push({
+          type: "Microsoft.Resources/unsupportedResource",
+          name: res.id,
+          properties: { Warning: `ARM serializer cannot process namespace: ${res.resourceType.namespace}` }
+        });
+        continue;
+      }
+
+      const armType = res.resourceType.type === 'account' ? 'Microsoft.Storage/storageAccounts' : 'Microsoft.Network/virtualNetworks';
+      const apiVersion = res.resourceType.type === 'account' ? '2023-05-01' : '2023-11-01';
+
+      const props: Record<string, any> = {};
+      for (const [k, v] of Object.entries(res.properties)) { props[k] = resolveExpression(v as any, 'ARM'); }
+
+      const azureRes = res as AzureInternalResource;
+      const armResource: any = {
+        type: armType,
+        apiVersion: apiVersion,
+        name: res.id,
+        location: "[resourceGroup().location]",
+        properties: props
+      };
+
+      // Safely apply specific azure metadata when present
+      if (azureRes.azureMetadata?.resourceGroupLookup) {
+        armResource.metadata = { targetResourceGroup: azureRes.azureMetadata.resourceGroupLookup };
+      }
+
+      if (res.conditionId) {
+        armResource.condition = `[equals(variables('${res.conditionId}'), true())]`;
+      }
+
+      if (res.dependencies.length > 0) {
+        armResource.dependsOn = res.dependencies.map((d: { target: any; }) => d.target);
+      }
+
+      output.resources.push(armResource);
+    }
+    return JSON.stringify(output, null, 2);
+  }
+}
+
+// ========================================================================
+// TERRAFORM SERIALIZER
+// ========================================================================
+export class TerraformSerializer implements BackendSerializer {
+  readonly name = 'Terraform';
+
+  serialize(manifest: GenericCloudAssembly<any>): string {
+    const output: any = { resource: {} };
+
+    const providerMap: Record<string, string> = {
+      'aws.s3.bucket': 'aws_s3_bucket',
+      'azure.storage.account': 'azurerm_storage_account'
+    };
+
+    for (const res of manifest.resources) {
+      const tfType = providerMap[`${res.resourceType.namespace}.${res.resourceType.type}`];
+
+      if (!tfType) {
+        output.resource[`unsupported_${res.resourceType.namespace.replace('.', '_')}`] = {
+          [res.id]: { Warning: `Terraform serializer skipped dynamic generation for type: ${res.resourceType.type}` }
+        };
+        continue;
+      }
+
+      const props: Record<string, any> = {};
+      for (const [k, v] of Object.entries(res.properties)) { props[k] = resolveExpression(v as any, 'TF'); }
+
+      if (res.conditionId) {
+        props['count'] = `\${var.${res.conditionId} ? 1 : 0}`;
+      }
+
+      output.resource[tfType] = output.resource[tfType] || {};
+      output.resource[tfType][res.id] = props;
+    }
+    return JSON.stringify(output, null, 2);
+  }
+}
+
+export class SerializerRegistry {
+  private serializers = new Map<string, BackendSerializer>();
+  register(s: BackendSerializer) { this.serializers.set(s.name, s); }
+  get(name: string) { return this.serializers.get(name); }
 }

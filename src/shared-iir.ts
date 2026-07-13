@@ -1,13 +1,44 @@
-// Models expressions and token references independently of deployment syntax
-export type IirExpression = 
+export interface ResourceType {
+  readonly namespace: string; // e.g., 'aws.s3', 'azure.storage'[cite: 1]
+  readonly kind: string;      // e.g., 'bucket', 'account'[cite: 1]
+}
+
+export interface IirReference {
+  readonly targetResourceId: string;
+  readonly attributePath: string[];
+  readonly expectedType: 'string' | 'number' | 'boolean' | 'array' | 'object';
+}
+
+export type IirExpression =
   | { kind: 'Literal'; value: any }
-  | { kind: 'Reference'; targetResourceId: string; attributePath: string[] };
+  | { kind: 'Reference'; reference: IirReference }
+  | { kind: 'Concat'; parts: IirExpression[] }
+  | { kind: 'Conditional'; conditionId: string; whenTrue: IirExpression; whenFalse: IirExpression }
+  | { kind: 'List'; elements: IirExpression[] }
+  | { kind: 'Map'; fields: Record<string, IirExpression> };
+
+export interface Dependency {
+  readonly target: string;
+  readonly kind: 'Explicit' | 'Implicit' | 'Ordering' | 'Replacement';
+}
+
+export interface IirAsset {
+  readonly id: string;
+  readonly kind: 'DockerImage' | 'FileArchive';
+  readonly sourcePath: string;
+}
+
+export interface IirCondition {
+  readonly id: string;
+  readonly expression: IirExpression;
+}
 
 export interface IirResource {
   readonly id: string;
-  readonly kind: string; // Cloud-neutral semantic type, e.g., "bucket", "virtual-network"[cite: 1]
+  readonly resourceType: ResourceType;
   readonly properties: Record<string, IirExpression>;
-  readonly dependencies: string[]; // Explicit dependency graph tracking[cite: 1]
+  readonly dependencies: Dependency[];
+  readonly conditionId?: string;
 }
 
 export interface IirOutput {
@@ -15,8 +46,10 @@ export interface IirOutput {
   readonly value: IirExpression;
 }
 
-// Canonical stable semantic contract between libraries and runtimes[cite: 1]
-export interface SharedIirManifest {
-  readonly resources: IirResource[];
+// Generics allow our core compiler assembly to ingest specialized platform resources
+export interface GenericCloudAssembly<T extends IirResource = IirResource> {
+  readonly conditions: IirCondition[];
+  readonly assets: IirAsset[];
+  readonly resources: T[];
   readonly outputs: IirOutput[];
 }
