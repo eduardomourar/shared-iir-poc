@@ -1,0 +1,25 @@
+{
+  "name": "shared-iir-poc",
+  "version": "0.0.1",
+  "description": "",
+  "homepage": "https://github.com/eduardomourar/shared-iir-poc#readme",
+  "bugs": {
+    "url": "https://github.com/eduardomourar/shared-iir-poc/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/eduardomourar/shared-iir-poc.git"
+  },
+  "license": "MIT",
+  "author": "Eduardo Rodrigues <16357187+eduardomourar@users.noreply.github.com>",
+  "type": "module",
+  "main": "src/main.ts",
+  "scripts": {
+    "start": "node src/main.ts",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.1",
+    "typescript": "^7.0.2"
+  }
+}
