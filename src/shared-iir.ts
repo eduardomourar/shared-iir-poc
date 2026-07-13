@@ -1,6 +1,6 @@
 export interface ResourceType {
-  readonly namespace: string; // e.g., 'aws.s3', 'azure.storage'[cite: 1]
-  readonly kind: string;      // e.g., 'bucket', 'account'[cite: 1]
+  readonly namespace: string; // e.g., 'aws.s3', 'azure.storage'
+  readonly kind: string;      // e.g., 'bucket', 'account'
 }
 
 export interface IirReference {
@@ -9,13 +9,35 @@ export interface IirReference {
   readonly expectedType: 'string' | 'number' | 'boolean' | 'array' | 'object';
 }
 
-export type IirExpression =
-  | { kind: 'Literal'; value: any }
-  | { kind: 'Reference'; reference: IirReference }
-  | { kind: 'Concat'; parts: IirExpression[] }
-  | { kind: 'Conditional'; conditionId: string; whenTrue: IirExpression; whenFalse: IirExpression }
-  | { kind: 'List'; elements: IirExpression[] }
-  | { kind: 'Map'; fields: Record<string, IirExpression> };
+/**
+ * JSII-friendly expression model:
+ * - Single interface (no TypeScript union) with a `kind` discriminant.
+ * - Optional properties for each expression variant.
+ * - `fields` uses a string-indexed map of nested expressions.
+ */
+export interface IirExpression {
+  readonly kind: 'Literal' | 'Reference' | 'Concat' | 'Conditional' | 'List' | 'Map';
+
+  // Literal
+  readonly literalValue?: string | number | boolean;
+
+  // Reference
+  readonly reference?: IirReference;
+
+  // Concat
+  readonly parts?: IirExpression[];
+
+  // Conditional
+  readonly conditionId?: string;
+  readonly whenTrue?: IirExpression;
+  readonly whenFalse?: IirExpression;
+
+  // List
+  readonly elements?: IirExpression[];
+
+  // Map
+  readonly fields?: Record<string, IirExpression>;
+}
 
 export interface Dependency {
   readonly target: string;
@@ -46,10 +68,10 @@ export interface IirOutput {
   readonly value: IirExpression;
 }
 
-// Generics allow our core compiler assembly to ingest specialized platform resources
-export interface GenericCloudAssembly<T extends IirResource = IirResource> {
+// Concrete, non-generic assembly for JSII
+export interface CloudAssembly {
   readonly conditions: IirCondition[];
   readonly assets: IirAsset[];
-  readonly resources: T[];
+  readonly resources: IirResource[];
   readonly outputs: IirOutput[];
 }

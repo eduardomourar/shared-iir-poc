@@ -13,13 +13,31 @@
   "license": "MIT",
   "author": "Eduardo Rodrigues <16357187+eduardomourar@users.noreply.github.com>",
   "type": "module",
-  "main": "src/main.ts",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
   "scripts": {
+    "build": "jsii --silence-warnings reserved-word",
     "start": "node src/main.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
+  "jsii": {
+    "outdir": "dist",
+    "tsc": {
+      "outDir": "lib",
+      "rootDir": "src"
+    },
+    "excludeTypescript": [
+      "src/**/__tests__/**"
+    ],
+    "versionFormat": "short",
+    "license": "MIT",
+    "targets": {},
+    "tsconfig": "tsconfig.json",
+    "validateTsconfig": "minimal"
+  },
   "devDependencies": {
     "@types/node": "^26.1.1",
-    "typescript": "^7.0.2"
+    "typescript": "^7.0.2",
+    "jsii": "^6.0.4"
   }
 }
