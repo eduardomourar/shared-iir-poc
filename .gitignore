@@ -37,18 +37,17 @@ typings/
 appConfig.js
 build/
 dist/
+lib/
+
+.jsii
 
 # Blackduck CodeSight ignore
 .codesight/
 
 # Terraform staging directory
 cdktf.out/
-tcons-staging/
 .gen/
 *.terraform*
 .terraform.lock.hcl
 *.tfstate*
 *.tfvars*
-
-# Rust build artifacts
-target/

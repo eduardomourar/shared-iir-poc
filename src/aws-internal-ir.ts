@@ -1,4 +1,4 @@
-import type { GenericCloudAssembly, IirResource } from './shared-iir.ts';
+import type { CloudAssembly, IirResource } from './shared-iir.ts';
 
 export interface AwsSpecificMetadata {
   readonly deletionPolicy?: 'Delete' | 'Retain' | 'Snapshot';
@@ -9,4 +9,5 @@ export interface AwsInternalResource extends IirResource {
   readonly awsMetadata?: AwsSpecificMetadata;
 }
 
-export interface AwsCloudAssembly extends GenericCloudAssembly<AwsInternalResource> {}
+// Keep a non-generic alias for clarity (this is just an exported alias to CloudAssembly)
+export type AwsCloudAssembly = CloudAssembly;

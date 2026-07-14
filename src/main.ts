@@ -1,5 +1,5 @@
-import type { AwsCloudAssembly } from './aws-internal-ir.ts';
-import type { AzureCloudAssembly } from './azure-internal-ir.ts';
+import type { AwsCloudAssembly, AwsInternalResource } from './aws-internal-ir.ts';
+import type { AzureCloudAssembly, AzureInternalResource } from './azure-internal-ir.ts';
 import { CloudFormationSerializer, ArmSerializer, TerraformSerializer, SerializerRegistry } from './serializers.ts';
 
 // 1. Initialize Registry
@@ -10,43 +10,43 @@ registry.register(new TerraformSerializer());
 
 // 2. AWS Specific Assembly Manifest (RFC-006)
 const mockAwsAssembly: AwsCloudAssembly = {
-  conditions: [{ id: 'IsProduction', expression: { kind: 'Literal', value: true } }],
+  conditions: [{ id: 'IsProduction', expression: { kind: 'Literal', literalValue: true } }],
   assets: [],
   resources: [
-    {
+    ({
       id: 'S3DeploymentBucket',
       resourceType: { namespace: 'aws.s3', kind: 'bucket' },
       properties: {
         BucketName: {
           kind: 'Concat',
           parts: [
-            { kind: 'Literal', value: 'company-' },
-            { kind: 'Conditional', conditionId: 'IsProduction', whenTrue: { kind: 'Literal', value: 'prod' }, whenFalse: { kind: 'Literal', value: 'dev' } },
-            { kind: 'Literal', value: '-assets' }
+            { kind: 'Literal', literalValue: 'company-' },
+            { kind: 'Conditional', conditionId: 'IsProduction', whenTrue: { kind: 'Literal', literalValue: 'prod' }, whenFalse: { kind: 'Literal', literalValue: 'dev' } },
+            { kind: 'Literal', literalValue: '-assets' }
           ]
         }
       },
       dependencies: [],
       awsMetadata: { deletionPolicy: 'Retain' } // Capture AWS custom policies
-    }
+    } as AwsInternalResource)
   ],
   outputs: []
 };
 
 // 3. Azure Specific Assembly Manifest (RFC-07)
 const mockAzureAssembly: AzureCloudAssembly = {
-  conditions: [{ id: 'IsProduction', expression: { kind: 'Literal', value: true } }],
+  conditions: [{ id: 'IsProduction', expression: { kind: 'Literal', literalValue: true } }],
   assets: [],
   resources: [
-    {
+    ({
       id: 'PrimaryStorageAccount',
       resourceType: { namespace: 'azure.storage', kind: 'account' },
       properties: {
-        accountName: { kind: 'Literal', value: 'sawebassets2026' }
+        accountName: { kind: 'Literal', literalValue: 'sawebassets2026' }
       },
       dependencies: [],
       azureMetadata: { resourceGroupLookup: 'CoreNetworkRG' } // Capture Azure custom metadata
-    }
+    } as AzureInternalResource)
   ],
   outputs: []
 };
