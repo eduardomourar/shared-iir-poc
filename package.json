@@ -17,7 +17,7 @@
   "types": "lib/index.d.ts",
   "scripts": {
     "build": "jsii --silence-warnings reserved-word",
-    "start": "node src/main.ts",
+    "start": "node src/demo/main.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "jsii": {
