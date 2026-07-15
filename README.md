@@ -31,7 +31,7 @@ This repository explores a new synthesis architecture that decouples infrastruct
 Today, most Infrastructure as Code (IaC) frameworks tightly couple synthesis with a specific deployment engine:
 
 - AWS CDK → CloudFormation
-- CDKTF → Terraform
+- CDKTN → Terraform
 - Pulumi → Pulumi Engine
 
 This project investigates an alternative architecture where infrastructure is first represented as a deployment-engine-neutral semantic model before being translated into one or more deployment targets.
@@ -137,7 +137,7 @@ Construct Tree
 Shared Infrastructure Intermediate Representation
         │
         ▼
-Platform Internal Intermediate Representation
+Platform Intermediate Representation
         │
         ▼
 Cloud Assembly
@@ -147,7 +147,7 @@ Serializer Registry
         │
    ┌────┼────────────┐
    ▼    ▼            ▼
-CloudFormation   Terraform   ARM
+  CFN   TF          ARM
 ```
 
 Each layer owns a single responsibility.
@@ -374,7 +374,7 @@ The objective is to validate architecture before introducing production-ready im
 Several existing projects influenced the architecture explored here.
 
 - AWS CDK Cloud Assembly
-- CDKTF
+- CDKTN
 - Azure Terraform CDK Constructs
 - cdk-from-cfn
 - pulumi-tool-cdk2pulumi
