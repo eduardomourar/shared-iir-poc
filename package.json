@@ -16,28 +16,21 @@
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
   "scripts": {
-    "build": "jsii --silence-warnings reserved-word",
-    "start": "node src/demo/main.ts",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "npm run build:packages",
+    "build:packages": "cd packages/core && npm run build && cd ../aws-cdk && npm run build",
+    "start": "npm run build:packages && node --experimental-strip-types src/main.ts",
+    "test": "node --test __tests__/function-conversion.test.ts",
+    "test:simple": "node --test __tests__/s3-bucket-simple.test.ts",
+    "test:cross-backend": "node --test __tests__/secrets-manager-cross-backend.test.ts",
+    "test:all": "node --test __tests__/**/*.test.ts"
   },
-  "jsii": {
-    "outdir": "dist",
-    "tsc": {
-      "outDir": "lib",
-      "rootDir": "src"
-    },
-    "excludeTypescript": [
-      "src/**/__tests__/**"
-    ],
-    "versionFormat": "short",
-    "license": "MIT",
-    "targets": {},
-    "tsconfig": "tsconfig.json",
-    "validateTsconfig": "minimal"
+  "dependencies": {
+    "aws-cdk-lib": "^2.261.0",
+    "@shared-iir/aws-cdk": "file://./packages/aws-cdk",
+    "@shared-iir/core": "file://./packages/core"
   },
   "devDependencies": {
     "@types/node": "^26.1.1",
-    "typescript": "^7.0.2",
-    "jsii": "^6.0.4"
+    "typescript": "^7.0.2"
   }
 }

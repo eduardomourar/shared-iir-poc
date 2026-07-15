@@ -648,7 +648,7 @@ The `constructs` library is the gold standard for thin abstraction:
 - ❌ Dictate output format
 - ❌ Provide framework-specific APIs
 
-**Result**: Used by AWS CDK, CDKTF, cdk8s, cdk8s-plus, Projen, and more. Zero coupling issues.
+**Result**: Used by AWS CDK, CDKTN, cdk8s, cdk8s-plus, Projen, and more. Zero coupling issues.
 
 ### How Shared IIR Should Follow This Model
 

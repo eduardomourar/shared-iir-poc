@@ -3,20 +3,18 @@
 # Project overview
 - Language: TypeScript (ES 2023 target, JSII-compatible subset)
 - Runtime: Node.js 24 (uses native type-stripping for .ts execution)
-- Package manager: npm
-- Build: JSII (`npm run build` → `jsii --silence-warnings reserved-word`)
+- Package manager: npm (with local file: dependencies for workspace packages)
+- Build: JSII (`npm run build:packages` → builds packages/core and packages/aws-cdk with jsii)
 - Testing: Native Node.js Test Runner
 - Linting: ESLint + Stylistic
-- Module system: ESM (`"type": "module"`)
+- Module system: CommonJS (JSII requirement)
 
 # Repository structure
-- /src/iir/shared → Shared Infrastructure Intermediate Representation (public semantic contract)
-- /src/iir/aws → AWS Internal IR (platform-specific extensions)
-- /src/iir/azure → Azure Internal IR (platform-specific extensions)
-- /src/assembly → Cloud Assembly (synthesis output packaging)
-- /src/serializers → Backend serializers (CloudFormation, Terraform, ARM, Mock)
-- /src/lowering → Lowering pipeline (compiler-style transformation phases)
-- /src/demo → End-to-end demonstration
+- /packages/core → @shared-iir/core (Core IIR library with extraction, lowering, serialization)
+- /packages/aws-cdk → @shared-iir/aws-cdk (AWS CDK extractor)
+- /demo.ts → Demo script using local packages
+- /__tests__ → Test files
+- /docs → Documentation
 - /lib → Compiled output (gitignored)
 
 # Architecture (compiler-inspired pipeline)
