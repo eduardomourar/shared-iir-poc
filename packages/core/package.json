@@ -1,0 +1,43 @@
+{
+  "name": "@shared-iir/core",
+  "version": "0.0.1",
+  "description": "Core extraction interfaces and utilities for Shared IIR",
+  "author": "Eduardo Rodrigues <16357187+eduardomourar@users.noreply.github.com>",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/eduardomourar/shared-iir-poc.git",
+    "directory": "packages/core"
+  },
+  "license": "MIT",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "scripts": {
+    "build": "jsii --silence-warnings reserved-word",
+    "test": "node --test"
+  },
+  "jsii": {
+    "outdir": "dist",
+    "tsc": {
+      "outDir": "lib",
+      "rootDir": "src"
+    },
+    "excludeTypescript": [
+      "src/**/__tests__/**"
+    ],
+    "versionFormat": "short",
+    "license": "MIT",
+    "targets": {},
+    "tsconfig": "tsconfig.json",
+    "validateTsconfig": "minimal"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/node": "^26.1.1",
+    "typescript": "^7.0.2",
+    "jsii": "^6.0.4",
+    "constructs": "^10.0.0"
+  },
+  "peerDependencies": {
+    "constructs": "^10.0.0"
+  }
+}

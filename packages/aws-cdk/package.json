@@ -1,0 +1,46 @@
+{
+  "name": "@shared-iir/aws-cdk",
+  "version": "0.0.1",
+  "description": "AWS CDK extractor for Shared IIR",
+  "author": "Eduardo Rodrigues <16357187+eduardomourar@users.noreply.github.com>",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/eduardomourar/shared-iir-poc.git",
+    "directory": "packages/aws-cdk"
+  },
+  "license": "MIT",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "scripts": {
+    "build": "jsii --silence-warnings reserved-word",
+    "test": "node --test"
+  },
+  "jsii": {
+    "outdir": "dist",
+    "tsc": {
+      "outDir": "lib",
+      "rootDir": "src"
+    },
+    "excludeTypescript": [
+      "src/**/__tests__/**"
+    ],
+    "versionFormat": "short",
+    "license": "MIT",
+    "targets": {},
+    "tsconfig": "tsconfig.json",
+    "validateTsconfig": "minimal"
+  },
+  "dependencies": {
+    "constructs": "^10.0.0",
+    "aws-cdk-lib": "^2.180.0"
+  },
+  "devDependencies": {
+    "@shared-iir/core": "file:../core",
+    "@types/node": "^26.1.1",
+    "typescript": "^7.0.2",
+    "jsii": "^6.0.4"
+  },
+  "peerDependencies": {
+    "@shared-iir/core": "^0.0.1"
+  }
+}
