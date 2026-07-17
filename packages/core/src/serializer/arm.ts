@@ -2,7 +2,7 @@ import { ArtifactType } from "../assembly/artifact";
 import type { AssemblyArtifact } from "../assembly/artifact";
 import type { IBackendSerializer, SerializationContext } from "./serializer";
 import { ArmExpressionResolver } from "./expression-resolver";
-import type { IirResource } from "../model";
+import type { IirResource } from "../resource";
 
 export class ArmSerializer implements IBackendSerializer {
   readonly id = 'arm';
@@ -23,7 +23,7 @@ export class ArmSerializer implements IBackendSerializer {
       const { armType, apiVersion } = this.mapResourceType(res);
       const props: Record<string, unknown> = {};
       for (const [k, v] of Object.entries(res.properties)) {
-        props[k] = new ArmExpressionResolver().resolve(v);
+        props[k] = new ArmExpressionResolver().resolve(v as any);
       }
 
       const armResource: Record<string, unknown> = {
@@ -34,12 +34,12 @@ export class ArmSerializer implements IBackendSerializer {
         properties: props,
       };
 
-      if (res.conditionId) {
-        armResource['condition'] = `[equals(variables('${res.conditionId}'), true())]`;
+      if (res.options?.condition) {
+        armResource['condition'] = `[equals(variables('${res.options.condition}'), true())]`;
       }
 
-      if (res.dependencies.length > 0) {
-        armResource['dependsOn'] = res.dependencies.map(d => d.targetResourceId);
+      if (res.options?.dependsOn && res.options.dependsOn.length > 0) {
+        armResource['dependsOn'] = res.options.dependsOn;
       }
 
       armResources.push(armResource);

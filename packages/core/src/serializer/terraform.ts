@@ -2,7 +2,7 @@ import { ArtifactType } from "../assembly/artifact";
 import type { AssemblyArtifact } from "../assembly/artifact";
 import type { IBackendSerializer, SerializationContext } from "./serializer";
 import { TerraformExpressionResolver } from "./expression-resolver";
-import type { IirResource } from "../model";
+import type { IirResource } from "../resource";
 
 export class TerraformSerializer implements IBackendSerializer {
   readonly id = 'terraform';
@@ -16,15 +16,15 @@ export class TerraformSerializer implements IBackendSerializer {
       const tfType = this.mapResourceType(res);
       const props: Record<string, unknown> = {};
       for (const [k, v] of Object.entries(res.properties)) {
-        props[k] = new TerraformExpressionResolver().resolve(v);
+        props[k] = new TerraformExpressionResolver().resolve(v as any);
       }
 
-      if (res.conditionId) {
-        props['count'] = `\${var.${res.conditionId} ? 1 : 0}`;
+      if (res.options?.condition) {
+        props['count'] = `\${var.${res.options.condition} ? 1 : 0}`;
       }
 
-      if (res.dependencies.length > 0) {
-        props['depends_on'] = res.dependencies.map(d => d.targetResourceId);
+      if (res.options?.dependsOn && res.options.dependsOn.length > 0) {
+        props['depends_on'] = res.options.dependsOn;
       }
 
       if (!output.resource[tfType]) {

@@ -12,7 +12,7 @@
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
   "scripts": {
-    "build": "jsii --silence-warnings reserved-word",
+    "build": "tsc",
     "test": "node --test"
   },
   "jsii": {

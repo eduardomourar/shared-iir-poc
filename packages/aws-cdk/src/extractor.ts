@@ -4,23 +4,34 @@ import type {
   IIirExtractor,
   SharedIirManifest,
   IirResource,
+  IirResourceOrComponent,
   Expression,
+  ResourceOptions,
+  OutputValue,
 } from "@shared-iir/core";
+import { literal } from "@shared-iir/core";
 
 /**
  * AWS CDK extractor - synthesis-time extraction from CDK construct trees.
  *
- * Pattern from common-denominator analysis:
- * - Walk tree at synthesis time (not construct time)
- * - Extract CfnResources → Thin IIR (no semantic capabilities)
- * - No changes to construct APIs required
- * - Opt-in, non-invasive
+ * Extracts Shared IIR from AWS CDK L1 (CfnXxx) resources with:
+ * - Enhanced resource options (parent, dependencies, conditions, lifecycle)
+ * - Scoping and variable tracking
+ * - Output extraction
+ * - Component detection (future: L2/L3 constructs as components)
  */
 export class AwsCdkExtractor implements IIirExtractor {
   extract(app: IConstruct): SharedIirManifest {
-    const resources: IirResource[] = [];
+    const rootScope = {
+      id: 'program',
+      kind: 'program' as const,
+      variables: new Map(),
+      children: [],
+    };
 
-    // Walk the construct tree and find all CfnResources
+    // Extract resources with enhanced options
+    const resources: IirResourceOrComponent[] = [];
+
     for (const construct of app.node.findAll()) {
       if (CfnResource.isCfnResource(construct)) {
         const iirResource = this.extractCfnResource(construct);
@@ -30,9 +41,19 @@ export class AwsCdkExtractor implements IIirExtractor {
       }
     }
 
+    // Extract outputs (look for CfnOutput constructs)
+    const outputs = this.extractOutputs(app);
+
     return {
+      version: '2.0.0',
+      metadata: {
+        name: app.node.id || 'CDKApp',
+        sourceFramework: 'aws-cdk',
+      },
+      configuration: [],  // CDK doesn't have explicit config, could extract from context
       resources,
-      outputs: [], // TODO: Extract outputs from CfnOutputs
+      outputs,
+      rootScope,
     };
   }
 
@@ -46,11 +67,15 @@ export class AwsCdkExtractor implements IIirExtractor {
     // Extract properties from CloudFormation resource
     const properties = this.extractProperties(cfn);
 
+    // Extract resource options
+    const options = this.extractResourceOptions(cfn);
+
     return {
+      kind: 'Resource',
       id: this.constructId(cfn),
       resourceType,
       properties,
-      dependencies: [], // TODO: Extract dependencies from cfn.node.dependencies
+      options,
     };
   }
 
@@ -85,15 +110,18 @@ export class AwsCdkExtractor implements IIirExtractor {
 
   private valueToExpression(value: any): Expression {
     if (value === null || value === undefined) {
-      return { kind: 'Literal', literalValue: null };
+      return literal(null);
     }
 
     if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
-      return { kind: 'Literal', literalValue: value };
+      return literal(value);
     }
 
     if (Array.isArray(value)) {
-      return { kind: 'Literal', literalValue: value };
+      return {
+        kind: 'ArrayLiteral',
+        elements: value.map(v => this.valueToExpression(v)),
+      };
     }
 
     if (typeof value === 'object') {
@@ -104,25 +132,89 @@ export class AwsCdkExtractor implements IIirExtractor {
           reference: {
             targetResourceId: value.Ref,
             attributePath: [],
-            expectedType: 'string',
           },
         };
       }
 
       if ('Fn::GetAtt' in value) {
-        const [resourceId, ...attributePath] = value['Fn::GetAtt'];
+        const getAtt = value['Fn::GetAtt'];
+        if (Array.isArray(getAtt) && getAtt.length >= 2) {
+          const [resourceId, ...attributePath] = getAtt;
+          return {
+            kind: 'Reference',
+            reference: {
+              targetResourceId: resourceId,
+              attributePath: attributePath.map(String),
+            },
+          };
+        }
+      }
+
+      if ('Fn::Join' in value) {
+        const [separator, items] = value['Fn::Join'];
         return {
-          kind: 'Reference',
-          reference: {
-            targetResourceId: resourceId,
-            attributePath: attributePath.map(String),
-            expectedType: 'string',
-          },
+          kind: 'FunctionCall',
+          functionName: 'join',
+          arguments: [
+            this.valueToExpression(separator),
+            this.valueToExpression(items),
+          ],
         };
+      }
+
+      if ('Fn::If' in value) {
+        const [condition, trueValue, falseValue] = value['Fn::If'];
+        return {
+          kind: 'Conditional',
+          condition: { kind: 'Variable', name: condition },
+          trueValue: this.valueToExpression(trueValue),
+          falseValue: this.valueToExpression(falseValue),
+        };
+      }
+
+      // Object literal
+      return {
+        kind: 'ObjectLiteral',
+        properties: Object.fromEntries(
+          Object.entries(value).map(([k, v]) => [k, this.valueToExpression(v)])
+        ),
+      };
+    }
+
+    return literal(value);
+  }
+
+  private extractResourceOptions(cfn: CfnResource): ResourceOptions {
+    const cfnOptions = (cfn as any).cfnOptions;
+    const deps = cfn.node.dependencies;
+
+    return {
+      ...(cfnOptions?.condition && { condition: cfnOptions.condition }),
+      ...(deps.length > 0 && { dependsOn: deps.map((d: any) => d.node.path || d.node.id) }),
+      ...(cfn.node.scope && cfn.node.scope !== cfn && {
+        parent: cfn.node.scope.node.path || cfn.node.scope.node.id
+      }),
+      ...(cfnOptions?.deletionPolicy === 'Retain' && { retainOnDelete: true }),
+      ...(cfnOptions?.updateReplacePolicy === 'Delete' && { deleteBeforeReplace: true }),
+    };
+  }
+
+  private extractOutputs(app: IConstruct): OutputValue[] {
+    const outputs: OutputValue[] = [];
+
+    // Look for CfnOutput constructs
+    for (const construct of app.node.findAll()) {
+      if (construct.constructor.name === 'CfnOutput') {
+        const cfnOutput = construct as any;
+        outputs.push({
+          name: construct.node.id,
+          value: this.valueToExpression(cfnOutput.value),
+          ...(cfnOutput.description && { description: cfnOutput.description }),
+        });
       }
     }
 
-    return { kind: 'Literal', literalValue: value };
+    return outputs;
   }
 
   private constructId(construct: IConstruct): string {

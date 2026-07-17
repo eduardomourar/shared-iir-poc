@@ -3,18 +3,20 @@
  *
  * Provides:
  * - Extraction interfaces
- * - IR model (resources, expressions, dependencies)
+ * - IR model (resources, expressions, dependencies, scoping)
  * - Assembly (packaging synthesis output)
  * - Lowering pipeline (transformation phases)
  * - Serializers (backend code generation)
+ * - Built-in functions
  */
 
-// Core model
-export * from "./model";
-export * from "./expression";
+// Core model - order matters to avoid duplicate exports
 export * from "./dependency";
+export * from "./expression";
+export * from "./resource";
 export * from "./manifest";
-export * from "./output";
+export * from "./scope";
+export * from "./builtin-functions";
 export * from "./capability";
 
 // Extraction

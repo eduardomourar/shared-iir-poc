@@ -1,25 +1,24 @@
-import type { AssemblyArtifact } from "../assembly/artifact";
 import type { CloudAssembly } from "../assembly/assembly";
+import type { AssemblyArtifact } from "../assembly/artifact";
+import type { SharedIirManifest } from "../manifest";
 
-export interface BackendTarget {
-  readonly platform: string;
-  readonly version?: string;
-}
-
-export interface SerializationOptions {
-  readonly pretty?: boolean;
-  readonly strict?: boolean;
-}
-
-export interface SerializationContext {
-  readonly assembly: CloudAssembly;
-  readonly target: BackendTarget;
-  readonly options?: SerializationOptions;
-}
-
+/**
+ * Backend serializer - converts Shared IIR to deployment artifacts
+ */
 export interface IBackendSerializer {
   readonly id: string;
   readonly displayName: string;
 
+  /**
+   * Serialize the Shared IIR manifest to backend-specific artifacts
+   */
   serialize(context: SerializationContext): AssemblyArtifact;
+}
+
+/**
+ * Context passed to serializers
+ */
+export interface SerializationContext {
+  readonly manifest: SharedIirManifest;
+  readonly assembly: CloudAssembly;
 }

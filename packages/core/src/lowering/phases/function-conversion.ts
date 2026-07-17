@@ -2,7 +2,7 @@ import type { SharedIirManifest } from "../../manifest";
 import type { ILoweringPhase } from "../phase";
 import type { ILoweringContext } from "../context";
 import type { Expression, FunctionCallExpression } from "../../expression";
-import type { IirResource } from "../../model";
+import type { IirResourceOrComponent } from "../../resource";
 
 /**
  * Function conversion phase - converts CloudFormation intrinsic functions
@@ -32,6 +32,7 @@ export class FunctionConversionPhase implements ILoweringPhase {
 
   run(model: SharedIirManifest, context: ILoweringContext): SharedIirManifest {
     return {
+      ...model,
       resources: model.resources.map(resource => this.convertResource(resource, context)),
       outputs: model.outputs.map(output => ({
         ...output,
@@ -40,7 +41,10 @@ export class FunctionConversionPhase implements ILoweringPhase {
     };
   }
 
-  private convertResource(resource: IirResource, context: ILoweringContext): IirResource {
+  private convertResource(resource: IirResourceOrComponent, context: ILoweringContext): IirResourceOrComponent {
+    if (resource.kind !== 'Resource') {
+      return resource;  // Skip components for now
+    }
     const convertedProperties: Record<string, Expression> = {};
 
     for (const [key, value] of Object.entries(resource.properties)) {
@@ -49,6 +53,7 @@ export class FunctionConversionPhase implements ILoweringPhase {
 
     return {
       ...resource,
+      kind: 'Resource' as const,
       properties: convertedProperties,
     };
   }

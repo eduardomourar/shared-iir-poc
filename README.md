@@ -72,17 +72,41 @@ npm test
 
 ## Status
 
+### v1 (Current PoC)
 Proof-of-concept implementation. Demonstrates:
 - ✅ AWS CDK L2 → Shared IIR extraction
 - ✅ CloudFormation intrinsic function conversion
 - ✅ Multi-backend serialization (CloudFormation + Terraform)
 - ✅ Compiler-style lowering pipeline
 
+### v2 (Platform-Agnostic Evolution) 🚀
+
+Enhanced IIR design for true cross-platform support:
+- ✅ Rich expression system (15+ types vs 3 in v1)
+- ✅ Comprehensive resource options (lifecycle, dependencies, timeouts)
+- ✅ First-class component support
+- ✅ Explicit type system with validation
+- ✅ Scoping and variables (configuration, locals, loops)
+- ✅ Built-in function registry (50+ standard functions)
+- ✅ Invoke/call semantics (data sources, resource methods)
+
+**See [docs/V2-SUMMARY.md](docs/V2-SUMMARY.md) for complete v2 documentation.**
+
 ## Documentation
 
+### Architecture & Design
 - [Common Denominator Analysis](docs/common-denominator-analysis.md) - Architecture rationale
 - [Integration Strategy](docs/integration-strategy.md) - Implementation approach
-- [Package README](packages/README.md) - Package details
+- [Architecture](docs/architecture.md) - Current v1 architecture
+
+### v2 Documentation (NEW)
+- **[V2 Summary](docs/V2-SUMMARY.md)** - Overview of v2 changes
+- **[PCL Comparison](docs/pcl-comparison.md)** - Gap analysis vs Pulumi PCL
+- **[IIR v2 Specification](docs/IIR-V2-SPEC.md)** - Complete v2 spec with examples
+- **[Migration Guide](docs/MIGRATION-GUIDE-V2.md)** - How to migrate from v1 to v2
+
+### Package Details
+- [Package README](packages/README.md) - Package structure
 
 ## Relationship with RFCs
 
